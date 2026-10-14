@@ -414,7 +414,11 @@ func (r *Runtime) regexpproto_compile(call FunctionCall) Value {
 
 func (r *Runtime) regexpproto_exec(call FunctionCall) Value {
 	if this, ok := r.toObject(call.This).self.(*regexpObject); ok {
-		return this.exec(call.Argument(0).toString())
+		res, err := this.exec(call.Argument(0).toString())
+		if err != nil {
+			panic(r.newError(r.getRangeError(), err.Error()))
+		}
+		return res
 	} else {
 		r.typeErrorResult(true, "Method RegExp.prototype.exec called on incompatible receiver %s", r.objectproto_toString(FunctionCall{This: call.This}))
 		return nil
@@ -423,7 +427,11 @@ func (r *Runtime) regexpproto_exec(call FunctionCall) Value {
 
 func (r *Runtime) regexpproto_test(call FunctionCall) Value {
 	if this, ok := r.toObject(call.This).self.(*regexpObject); ok {
-		if this.test(call.Argument(0).toString()) {
+		match, err := this.test(call.Argument(0).toString())
+		if err != nil {
+			panic(r.newError(r.getRangeError(), err.Error()))
+		}
+		if match {
 			return valueTrue
 		} else {
 			return valueFalse
@@ -773,7 +781,10 @@ func (r *Runtime) regexpproto_stdMatcher(call FunctionCall) Value {
 	}
 	if rx.pattern.global {
 		rx.setOwnStr("lastIndex", intToValue(0), true)
-		results := rx.pattern.findAllSubmatchIndex(s, 0, -1, rx.pattern.sticky)
+		results, err := rx.pattern.findAllSubmatchIndex(s, 0, -1, rx.pattern.sticky)
+		if err != nil {
+			panic(r.newError(r.getRangeError(), err.Error()))
+		}
 		if len(results) == 0 {
 			return _null
 		}
@@ -783,7 +794,11 @@ func (r *Runtime) regexpproto_stdMatcher(call FunctionCall) Value {
 		}
 		return r.newArrayValues(a)
 	} else {
-		return rx.exec(s)
+		res, err := rx.exec(s)
+		if err != nil {
+			panic(r.newError(r.getRangeError(), err.Error()))
+		}
+		return res
 	}
 }
 
@@ -860,7 +875,11 @@ func regExpExec(r *Object, s String) Value {
 		}
 	}
 	if rx, ok := r.self.(*regexpObject); ok {
-		return rx.exec(s)
+		res, err := rx.exec(s)
+		if err != nil {
+			panic(r.runtime.newError(r.runtime.getRangeError(), err.Error()))
+		}
+		return res
 	}
 	panic(r.runtime.NewTypeError("no RegExpMatcher internal slot"))
 }
@@ -904,7 +923,10 @@ func (r *Runtime) regexpproto_stdSearch(call FunctionCall) Value {
 	previousLastIndex := rx.getStr("lastIndex", nil)
 	rx.setOwnStr("lastIndex", intToValue(0), true)
 
-	match, result := rx.execRegexp(s)
+	match, result, err := rx.execRegexp(s)
+	if err != nil {
+		panic(r.newError(r.getRangeError(), err.Error()))
+	}
 	rx.setOwnStr("lastIndex", previousLastIndex, true)
 
 	if !match {
@@ -1044,7 +1066,10 @@ func (r *Runtime) regexpproto_stdSplitter(call FunctionCall) Value {
 	lastIndex := 0
 	found := 0
 
-	results := pattern.findAllSubmatchIndex(s, 0, -1, false)
+	results, err := pattern.findAllSubmatchIndex(s, 0, -1, false)
+	if err != nil {
+		panic(r.newError(r.getRangeError(), err.Error()))
+	}
 	if targetLength == 0 {
 		if len(results) == 0 {
 			valueArray = append(valueArray, s)
@@ -1280,7 +1305,10 @@ func (r *Runtime) regexpproto_stdReplacer(call FunctionCall) Value {
 	} else {
 		index = rx.getLastIndex()
 	}
-	found := rx.pattern.findAllSubmatchIndex(s, toIntStrict(index), find, rx.pattern.sticky)
+	found, err := rx.pattern.findAllSubmatchIndex(s, toIntStrict(index), find, rx.pattern.sticky)
+	if err != nil {
+		panic(r.newError(r.getRangeError(), err.Error()))
+	}
 	if rx.pattern.global || rx.pattern.sticky {
 		var newLastIndex int64
 		if !rx.pattern.global && len(found) > 0 {
